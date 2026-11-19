@@ -63,8 +63,10 @@ function initGame() {
     document.addEventListener('keydown', handleKeyDown);
     document.addEventListener('keyup', handleKeyUp);
 
-    // Start menu music
-    document.getElementById('menu-music').play();
+    // Start menu music (with user interaction requirement workaround)
+    document.getElementById('menu-music').play().catch(e => {
+        console.log("Music requires user interaction to play");
+    });
     gameState.musicPlaying = true;
 
     // Game loop
@@ -125,7 +127,9 @@ function startGame() {
 
     // Start game music
     if (!gameState.musicPlaying) {
-        document.getElementById('game-music').play();
+        document.getElementById('game-music').play().catch(e => {
+            console.log("Music requires user interaction to play");
+        });
         gameState.musicPlaying = true;
     }
 
@@ -213,7 +217,9 @@ function returnToMenu() {
     gameState.musicPlaying = false;
 
     // Start menu music
-    document.getElementById('menu-music').play();
+    document.getElementById('menu-music').play().catch(e => {
+        console.log("Music requires user interaction to play");
+    });
     gameState.musicPlaying = true;
 }
 
@@ -360,9 +366,62 @@ function update() {
     }
 
     // Check for coin collisions
-    for (let i = 0; i < gameState.coins.length; i
+    for (let i = 0; i < gameState.coins.length; i++) {
+        const coin = gameState.coins[i];
 
-            if (gameState.lives <= 0) {
-                endGame();
-                return;
-           
+        if (gameState.duck.x + gameState.duck.width > coin.x &&
+            gameState.duck.x < coin.x + coin.width &&
+            gameState.duck.y + gameState.duck.height > coin.y &&
+            gameState.duck.y < coin.y + coin.height) {
+
+            // Coin collected
+            gameState.score += 10;
+            gameState.coins.splice(i, 1);
+            i--;
+
+            // Update score display
+            document.getElementById('score').textContent = `SCORE: ${gameState.score}`;
+        }
+    }
+
+    // Check if duck fell off screen
+    if (gameState.duck.y > GAME_HEIGHT) {
+        gameState.lives--;
+        if (gameState.lives <= 0) {
+            endGame();
+            return;
+        }
+        // Reset duck position
+        gameState.duck.y = 100;
+        gameState.duck.velocityY = 0;
+    }
+
+    // Generate new platforms
+    if (gameState.platforms.length === 0 || gameState.platforms[gameState.platforms.length - 1].x < GAME_WIDTH - 200) {
+        const platformHeight = 20;
+        const platformY = GAME_HEIGHT - 50 - Math.random() * 100;
+
+        gameState.platforms.push({
+            x: gameState.lastPlatformX + gameState.platformGap + Math.random() * 100,
+            y: platformY,
+            width: PLATFORM_SIZE,
+            height: platformHeight
+        });
+
+        gameState.lastPlatformX = gameState.platforms[gameState.platforms.length - 1].x;
+    }
+
+    // Generate new obstacles
+    if (gameState.obstacles.length === 0 || gameState.obstacles[gameState.obstacles.length - 1].x < GAME_WIDTH - 300) {
+        gameState.obstacles.push({
+            x: gameState.lastObstacleX + gameState.obstacleGap + Math.random() * 200,
+            y: GAME_HEIGHT - 50 - Math.random() * 150,
+            width: OBSTACLE_SIZE,
+            height: OBSTACLE_SIZE
+        });
+
+        gameState.lastObstacleX = gameState.obstacles[gameState.obstacles.length - 1].x;
+    }
+
+    // Generate new coins
+    if (gameState.coins.length === 0 || gameState.coins[gameState.coins.length - 1
