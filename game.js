@@ -17,7 +17,6 @@ let gameSpeed = 2;
 let difficulty = 1;
 let mapType = 1;
 let isGameRunning = false;
-let musicPlaying = false;
 let currentMusic = null;
 
 // DOM elements
@@ -69,6 +68,8 @@ function init() {
 
     // Set up event listeners
     document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('click', handleUserInteraction);
+
     startButton.addEventListener('click', startGame);
     restartButton.addEventListener('click', restartGame);
     fixWifiButton.addEventListener('click', showFixWifiPrompt);
@@ -94,20 +95,44 @@ function init() {
         });
     });
 
-    // Start with menu music
-    playMusic('menu');
-
     // Show menu
     showScreen('menu');
 }
 
+// Handle user interaction to enable audio
+function handleUserInteraction() {
+    if (!musicPlaying) {
+        playMusic('menu');
+        musicPlaying = true;
+        document.removeEventListener('click', handleUserInteraction);
+    }
+}
+
 // Show a specific screen
 function showScreen(screen) {
-    menuScreen.style.display = screen === 'menu' ? 'block' : 'none';
-    gameScreen.style.display = screen === 'game' ? 'block' : 'none';
-    gameOverScreen.style.display = screen === 'gameOver' ? 'block' : 'none';
-    fixWifiScreen.style.display = screen === 'fixWifi' ? 'block' : 'none';
-    currentGameState = gameStates[screen.toUpperCase()];
+    menuScreen.classList.remove('active');
+    gameScreen.classList.remove('active');
+    gameOverScreen.classList.remove('active');
+    fixWifiScreen.classList.remove('active');
+
+    switch(screen) {
+        case 'menu':
+            menuScreen.classList.add('active');
+            currentGameState = gameStates.MENU;
+            break;
+        case 'game':
+            gameScreen.classList.add('active');
+            currentGameState = gameStates.PLAYING;
+            break;
+        case 'gameOver':
+            gameOverScreen.classList.add('active');
+            currentGameState = gameStates.GAME_OVER;
+            break;
+        case 'fixWifi':
+            fixWifiScreen.classList.add('active');
+            currentGameState = gameStates.FIX_WIFI;
+            break;
+    }
 }
 
 // Play music
@@ -127,28 +152,7 @@ function playMusic(type) {
     currentMusic = new Audio(musicFiles[type]);
     currentMusic.loop = true;
     currentMusic.volume = 0.3;
-
-    // Try to play music (will only work if user interacted with page)
-    currentMusic.play().catch(e => {
-        console.log("Music play prevented:", e);
-        // Show a message to click to enable music
-        const musicPrompt = document.createElement('div');
-        musicPrompt.style.position = 'fixed';
-        musicPrompt.style.bottom = '20px';
-        musicPrompt.style.right = '20px';
-        musicPrompt.style.padding = '10px';
-        musicPrompt.style.backgroundColor = 'rgba(0,0,0,0.7)';
-        musicPrompt.style.color = 'white';
-        musicPrompt.style.borderRadius = '5px';
-        musicPrompt.textContent = 'Click anywhere to enable music';
-        document.body.appendChild(musicPrompt);
-
-        // Remove prompt when user clicks
-        document.addEventListener('click', () => {
-            document.body.removeChild(musicPrompt);
-            currentMusic.play();
-        }, { once: true });
-    });
+    currentMusic.play().catch(e => console.log("Music play prevented:", e));
 }
 
 // Start the game
@@ -158,6 +162,7 @@ function startGame() {
     isGameRunning = true;
     showScreen('game');
     playMusic(`game${difficulty}`);
+    gameLoop();
 }
 
 // Restart the game
@@ -172,6 +177,7 @@ function restartGame() {
     score = 0;
     isGameRunning = true;
     showScreen('game');
+    playMusic(`game${difficulty}`);
 }
 
 // Game loop
@@ -258,7 +264,8 @@ function generatePlatforms() {
         const platformTypes = {
             '1': { width: 100 + Math.random() * 100, color: '#4CAF50' },
             '2': { width: 150 + Math.random() * 150, color: '#2E7D32' },
-            '3': { width: 200 + Math.random() * 200, color: '#1B5E20' }
+            '3': { width: 200 + Math.random() * 200, color: '#1B5E20' },
+            '4': { width: 100 + Math.random() * 100, color: '#00BCD4' }
         };
 
         newPlatform = {
@@ -354,10 +361,4 @@ function backToMenu() {
 }
 
 // Start the game when the page loads
-window.addEventListener('load', () => {
-    init();
-    // Start game loop after a small delay to ensure everything is loaded
-    setTimeout(() => {
-        gameLoop();
-    }, 100);
-});
+window.addEventListener('load', init);
