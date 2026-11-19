@@ -1,427 +1,363 @@
-// Game constants
-const GRAVITY = 0.5;
-const JUMP_FORCE = -12;
-const DUCK_SIZE = 50;
-const PLATFORM_SIZE = 100;
-const OBSTACLE_SIZE = 50;
-const COIN_SIZE = 30;
-const GAME_WIDTH = 800;
-const GAME_HEIGHT = 400;
-
 // Game state
-let gameState = {
-    currentScreen: 'menu',
-    difficulty: 'easy',
-    currentMap: 1,
-    score: 0,
-    lives: 3,
-    time: 0,
-    gameActive: false,
-    musicPlaying: false,
-    duck: {
-        x: 100,
-        y: 200,
-        width: DUCK_SIZE,
-        height: DUCK_SIZE,
-        velocityY: 0,
-        isJumping: false
-    },
-    platforms: [],
-    obstacles: [],
-    coins: [],
-    gameSpeed: 5,
-    lastPlatformX: 0,
-    lastObstacleX: 0,
-    lastCoinX: 0,
-    platformGap: 200,
-    obstacleGap: 300,
-    coinGap: 150,
-    gameTime: 0,
-    gameTimer: null
+const gameStates = {
+    MENU: 0,
+    PLAYING: 1,
+    GAME_OVER: 2,
+    FIX_WIFI: 3
 };
+let currentGameState = gameStates.MENU;
 
-// Initialize game
-function initGame() {
+// Game variables
+let duck;
+let platforms = [];
+let obstacles = [];
+let score = 0;
+let highScore = localStorage.getItem('duckRun3HighScore') || 0;
+let gameSpeed = 2;
+let difficulty = 1;
+let mapType = 1;
+let isGameRunning = false;
+let musicPlaying = false;
+let currentMusic = null;
+
+// DOM elements
+const menuScreen = document.getElementById('menu-screen');
+const gameScreen = document.getElementById('game-screen');
+const gameOverScreen = document.getElementById('game-over-screen');
+const fixWifiScreen = document.getElementById('fix-wifi-screen');
+const scoreDisplay = document.getElementById('score');
+const highScoreDisplay = document.getElementById('high-score');
+const gameOverScoreDisplay = document.getElementById('game-over-score');
+const gameOverHighScoreDisplay = document.getElementById('game-over-high-score');
+const wifiFixImage = document.getElementById('wifi-fix-image');
+const wifiFixText = document.getElementById('wifi-fix-text');
+const difficultyButtons = document.querySelectorAll('.difficulty-btn');
+const mapButtons = document.querySelectorAll('.map-btn');
+const startButton = document.getElementById('start-btn');
+const restartButton = document.getElementById('restart-btn');
+const fixWifiButton = document.getElementById('fix-wifi-btn');
+const wifiYesBtn = document.getElementById('wifi-yes');
+const wifiNoBtn = document.getElementById('wifi-no');
+const backToMenuBtn = document.getElementById('back-to-menu');
+
+// Initialize the game
+function init() {
+    // Set up canvas
     const canvas = document.getElementById('game-canvas');
-    canvas.width = GAME_WIDTH;
-    canvas.height = GAME_HEIGHT;
     const ctx = canvas.getContext('2d');
 
+    // Create duck
+    duck = {
+        x: 50,
+        y: canvas.height / 2,
+        width: 40,
+        height: 40,
+        velocityY: 0,
+        gravity: 0.8,
+        jumpForce: -12,
+        color: '#FFD700'
+    };
+
+    // Create initial platforms
+    platforms = [
+        { x: 0, y: canvas.height - 20, width: canvas.width, height: 20, color: '#4CAF50' },
+        { x: canvas.width, y: canvas.height - 20, width: canvas.width, height: 20, color: '#4CAF50' }
+    ];
+
+    // Create initial obstacles
+    obstacles = [];
+
     // Set up event listeners
-    document.getElementById('start-btn').addEventListener('click', startGame);
-    document.getElementById('difficulty-btn').addEventListener('click', changeDifficulty);
-    document.getElementById('maps-btn').addEventListener('click', changeMap);
-    document.getElementById('wifi-btn').addEventListener('click', showWifiModal);
-    document.getElementById('wifi-yes').addEventListener('click', showJeffScreen);
-    document.getElementById('wifi-no').addEventListener('click', showNoJeffScreen);
-    document.getElementById('jeff-ok').addEventListener('click', hideJeffScreen);
-    document.getElementById('no-jeff-ok').addEventListener('click', hideNoJeffScreen);
-    document.getElementById('resume-btn').addEventListener('click', resumeGame);
-    document.getElementById('quit-btn').addEventListener('click', returnToMenu);
-    document.getElementById('restart-btn').addEventListener('click', restartGame);
-    document.getElementById('menu-btn').addEventListener('click', returnToMenu);
     document.addEventListener('keydown', handleKeyDown);
-    document.addEventListener('keyup', handleKeyUp);
+    startButton.addEventListener('click', startGame);
+    restartButton.addEventListener('click', restartGame);
+    fixWifiButton.addEventListener('click', showFixWifiPrompt);
+    wifiYesBtn.addEventListener('click', fixWifiYes);
+    wifiNoBtn.addEventListener('click', fixWifiNo);
+    backToMenuBtn.addEventListener('click', backToMenu);
 
-    // Start menu music (with user interaction requirement workaround)
-    document.getElementById('menu-music').play().catch(e => {
-        console.log("Music requires user interaction to play");
+    // Difficulty buttons
+    difficultyButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            difficultyButtons.forEach(btn => btn.classList.remove('active'));
+            button.classList.add('active');
+            difficulty = parseInt(button.dataset.difficulty);
+        });
     });
-    gameState.musicPlaying = true;
 
-    // Game loop
-    function gameLoop() {
-        if (!gameState.gameActive) return;
+    // Map buttons
+    mapButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            mapButtons.forEach(btn => btn.classList.remove('active'));
+            button.classList.add('active');
+            mapType = parseInt(button.dataset.map);
+        });
+    });
 
-        update();
-        render(ctx);
+    // Start with menu music
+    playMusic('menu');
 
-        requestAnimationFrame(gameLoop);
+    // Show menu
+    showScreen('menu');
+}
+
+// Show a specific screen
+function showScreen(screen) {
+    menuScreen.style.display = screen === 'menu' ? 'block' : 'none';
+    gameScreen.style.display = screen === 'game' ? 'block' : 'none';
+    gameOverScreen.style.display = screen === 'gameOver' ? 'block' : 'none';
+    fixWifiScreen.style.display = screen === 'fixWifi' ? 'block' : 'none';
+    currentGameState = gameStates[screen.toUpperCase()];
+}
+
+// Play music
+function playMusic(type) {
+    if (currentMusic) {
+        currentMusic.pause();
+        currentMusic.currentTime = 0;
     }
 
-    // Start the game loop
-    gameState.gameTimer = setInterval(() => {
-        gameState.time++;
-    }, 1000);
+    const musicFiles = {
+        'menu': 'assets/music/cg6-cyber-jump-499060.mp3',
+        'game1': 'assets/music/northside-records-phonk-dash-254379.mp3',
+        'game2': 'assets/music/reganati-geometry-dash-song-512161.mp3',
+        'game3': 'assets/music/xomxomski-happy-video-game-music-geometry-dash-type-beat-431059.mp3'
+    };
 
-    gameLoop();
+    currentMusic = new Audio(musicFiles[type]);
+    currentMusic.loop = true;
+    currentMusic.volume = 0.3;
+
+    // Try to play music (will only work if user interacted with page)
+    currentMusic.play().catch(e => {
+        console.log("Music play prevented:", e);
+        // Show a message to click to enable music
+        const musicPrompt = document.createElement('div');
+        musicPrompt.style.position = 'fixed';
+        musicPrompt.style.bottom = '20px';
+        musicPrompt.style.right = '20px';
+        musicPrompt.style.padding = '10px';
+        musicPrompt.style.backgroundColor = 'rgba(0,0,0,0.7)';
+        musicPrompt.style.color = 'white';
+        musicPrompt.style.borderRadius = '5px';
+        musicPrompt.textContent = 'Click anywhere to enable music';
+        document.body.appendChild(musicPrompt);
+
+        // Remove prompt when user clicks
+        document.addEventListener('click', () => {
+            document.body.removeChild(musicPrompt);
+            currentMusic.play();
+        }, { once: true });
+    });
 }
 
 // Start the game
 function startGame() {
-    gameState.currentScreen = 'game';
-    gameState.score = 0;
-    gameState.lives = 3;
-    gameState.time = 0;
-    gameState.duck = {
-        x: 100,
-        y: 200,
-        width: DUCK_SIZE,
-        height: DUCK_SIZE,
-        velocityY: 0,
-        isJumping: false
-    };
-    gameState.platforms = [];
-    gameState.obstacles = [];
-    gameState.coins = [];
-    gameState.lastPlatformX = 0;
-    gameState.lastObstacleX = 0;
-    gameState.lastCoinX = 0;
-    gameState.gameActive = true;
-
-    // Set game speed based on difficulty
-    switch(gameState.difficulty) {
-        case 'easy':
-            gameState.gameSpeed = 5;
-            document.getElementById('game-music').src = 'assets/music/cg6-cyber-jump-499060.mp3';
-            break;
-        case 'medium':
-            gameState.gameSpeed = 7;
-            document.getElementById('game-music').src = 'assets/music/northside-records-phonk-dash-254379.mp3';
-            break;
-        case 'hard':
-            gameState.gameSpeed = 10;
-            document.getElementById('game-music').src = 'assets/music/reganati-geometry-dash-song-512161.mp3';
-            break;
-    }
-
-    // Start game music
-    if (!gameState.musicPlaying) {
-        document.getElementById('game-music').play().catch(e => {
-            console.log("Music requires user interaction to play");
-        });
-        gameState.musicPlaying = true;
-    }
-
-    // Hide all screens
-    document.querySelectorAll('.screen').forEach(screen => {
-        screen.classList.remove('active');
-    });
-
-    // Show game screen
-    document.getElementById('game-screen').classList.add('active');
+    score = 0;
+    gameSpeed = 2 + (difficulty * 0.5);
+    isGameRunning = true;
+    showScreen('game');
+    playMusic(`game${difficulty}`);
 }
 
-// Change difficulty
-function changeDifficulty() {
-    const btn = document.getElementById('difficulty-btn');
-    switch(gameState.difficulty) {
-        case 'easy':
-            gameState.difficulty = 'medium';
-            btn.textContent = 'DIFFICULTY: MEDIUM';
-            break;
-        case 'medium':
-            gameState.difficulty = 'hard';
-            btn.textContent = 'DIFFICULTY: HARD';
-            break;
-        case 'hard':
-            gameState.difficulty = 'easy';
-            btn.textContent = 'DIFFICULTY: EASY';
-            break;
-    }
-}
-
-// Change map
-function changeMap() {
-    const btn = document.getElementById('maps-btn');
-    gameState.currentMap = (gameState.currentMap % 4) + 1;
-    btn.textContent = `MAPS: ${gameState.currentMap}`;
-}
-
-// Show WiFi modal
-function showWifiModal() {
-    document.getElementById('wifi-modal').classList.add('active');
-}
-
-// Show Jeff screen
-function showJeffScreen() {
-    document.getElementById('wifi-modal').classList.remove('active');
-    document.getElementById('jeff-screen').classList.add('active');
-}
-
-// Show "no Jeff" screen
-function showNoJeffScreen() {
-    document.getElementById('wifi-modal').classList.remove('active');
-    document.getElementById('no-jeff-screen').classList.add('active');
-}
-
-// Hide Jeff screen
-function hideJeffScreen() {
-    document.getElementById('jeff-screen').classList.remove('active');
-    document.getElementById('menu-screen').classList.add('active');
-}
-
-// Hide "no Jeff" screen
-function hideNoJeffScreen() {
-    document.getElementById('no-jeff-screen').classList.remove('active');
-    document.getElementById('menu-screen').classList.add('active');
-}
-
-// Resume game
-function resumeGame() {
-    gameState.gameActive = true;
-    document.getElementById('pause-screen').classList.remove('active');
-    document.getElementById('game-screen').classList.add('active');
-}
-
-// Return to menu
-function returnToMenu() {
-    gameState.gameActive = false;
-    clearInterval(gameState.gameTimer);
-    document.getElementById('game-screen').classList.remove('active');
-    document.getElementById('menu-screen').classList.add('active');
-
-    // Stop game music
-    document.getElementById('game-music').pause();
-    document.getElementById('game-music').currentTime = 0;
-    gameState.musicPlaying = false;
-
-    // Start menu music
-    document.getElementById('menu-music').play().catch(e => {
-        console.log("Music requires user interaction to play");
-    });
-    gameState.musicPlaying = true;
-}
-
-// Restart game
+// Restart the game
 function restartGame() {
-    gameState.gameActive = false;
-    clearInterval(gameState.gameTimer);
-    startGame();
+    duck.y = 300;
+    duck.velocityY = 0;
+    platforms = [
+        { x: 0, y: 480, width: 800, height: 20, color: '#4CAF50' },
+        { x: 800, y: 480, width: 800, height: 20, color: '#4CAF50' }
+    ];
+    obstacles = [];
+    score = 0;
+    isGameRunning = true;
+    showScreen('game');
 }
 
-// Handle key down
-function handleKeyDown(e) {
-    if (e.code === 'Space' && gameState.gameActive) {
-        if (!gameState.duck.isJumping) {
-            gameState.duck.velocityY = JUMP_FORCE;
-            gameState.duck.isJumping = true;
-        }
-    } else if (e.code === 'Escape' && gameState.gameActive) {
-        gameState.gameActive = false;
-        document.getElementById('pause-screen').classList.add('active');
-    }
-}
+// Game loop
+function gameLoop() {
+    if (!isGameRunning) return;
 
-// Handle key up
-function handleKeyUp(e) {
-    if (e.code === 'Space') {
-        // No action needed on key up for jumping
-    }
-}
+    const canvas = document.getElementById('game-canvas');
+    const ctx = canvas.getContext('2d');
 
-// Draw duck
-function drawDuck(ctx) {
-    ctx.fillStyle = '#FFA500'; // Orange duck
-    ctx.beginPath();
-    ctx.ellipse(
-        gameState.duck.x + gameState.duck.width/2,
-        gameState.duck.y + gameState.duck.height/2,
-        gameState.duck.width/2,
-        gameState.duck.height/2,
-        0, 0, Math.PI * 2
-    );
-    ctx.fill();
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Draw beak
-    ctx.fillStyle = '#FF6347'; // Tomato color
-    ctx.beginPath();
-    ctx.moveTo(gameState.duck.x + gameState.duck.width, gameState.duck.y + gameState.duck.height/2);
-    ctx.lineTo(gameState.duck.x + gameState.duck.width + 15, gameState.duck.y + gameState.duck.height/2 - 10);
-    ctx.lineTo(gameState.duck.x + gameState.duck.width + 15, gameState.duck.y + gameState.duck.height/2 + 10);
-    ctx.closePath();
-    ctx.fill();
+    // Update duck
+    duck.velocityY += duck.gravity;
+    duck.y += duck.velocityY;
 
-    // Draw eye
-    ctx.fillStyle = '#000';
-    ctx.beginPath();
-    ctx.arc(
-        gameState.duck.x + gameState.duck.width - 10,
-        gameState.duck.y + gameState.duck.height/3,
-        5, 0, Math.PI * 2
-    );
-    ctx.fill();
-}
-
-// Draw platform
-function drawPlatform(ctx, platform) {
-    ctx.fillStyle = '#8B4513'; // SaddleBrown
-    ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
-}
-
-// Draw obstacle
-function drawObstacle(ctx, obstacle) {
-    ctx.fillStyle = '#800000'; // Maroon
-    ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
-}
-
-// Draw coin
-function drawCoin(ctx, coin) {
-    ctx.fillStyle = '#FFD700'; // Gold
-    ctx.beginPath();
-    ctx.arc(
-        coin.x + coin.width/2,
-        coin.y + coin.height/2,
-        coin.width/2,
-        0, Math.PI * 2
-    );
-    ctx.fill();
-
-    // Add some shine
-    ctx.fillStyle = '#FFF';
-    ctx.beginPath();
-    ctx.arc(
-        coin.x + coin.width/3,
-        coin.y + coin.height/3,
-        coin.width/6,
-        0, Math.PI * 2
-    );
-    ctx.fill();
-}
-
-// Update game state
-function update() {
-    // Update duck position
-    gameState.duck.velocityY += GRAVITY;
-    gameState.duck.y += gameState.duck.velocityY;
-
-    // Check for platform collisions
-    let onPlatform = false;
-    for (let i = 0; i < gameState.platforms.length; i++) {
-        const platform = gameState.platforms[i];
-
-        if (gameState.duck.x + gameState.duck.width > platform.x &&
-            gameState.duck.x < platform.x + platform.width &&
-            gameState.duck.y + gameState.duck.height >= platform.y &&
-            gameState.duck.y + gameState.duck.height <= platform.y + 10 &&
-            gameState.duck.velocityY >= 0) {
-
-            gameState.duck.y = platform.y - gameState.duck.height;
-            gameState.duck.velocityY = 0;
-            gameState.duck.isJumping = false;
-            onPlatform = true;
+    // Check for collisions with platforms
+    let onGround = false;
+    for (let platform of platforms) {
+        if (duck.x + duck.width > platform.x &&
+            duck.x < platform.x + platform.width &&
+            duck.y + duck.height >= platform.y &&
+            duck.y + duck.height <= platform.y + 10) {
+            duck.y = platform.y - duck.height;
+            duck.velocityY = 0;
+            onGround = true;
         }
     }
 
-    // Check for obstacle collisions
-    for (let i = 0; i < gameState.obstacles.length; i++) {
-        const obstacle = gameState.obstacles[i];
-
-        if (gameState.duck.x + gameState.duck.width > obstacle.x &&
-            gameState.duck.x < obstacle.x + obstacle.width &&
-            gameState.duck.y + gameState.duck.height > obstacle.y &&
-            gameState.duck.y < obstacle.y + obstacle.height) {
-
-            // Collision detected
-            gameState.lives--;
-            if (gameState.lives <= 0) {
-                endGame();
-                return;
-            }
-
-            // Remove obstacle
-            gameState.obstacles.splice(i, 1);
-            i--;
-        }
-    }
-
-    // Check for coin collisions
-    for (let i = 0; i < gameState.coins.length; i++) {
-        const coin = gameState.coins[i];
-
-        if (gameState.duck.x + gameState.duck.width > coin.x &&
-            gameState.duck.x < coin.x + coin.width &&
-            gameState.duck.y + gameState.duck.height > coin.y &&
-            gameState.duck.y < coin.y + coin.height) {
-
-            // Coin collected
-            gameState.score += 10;
-            gameState.coins.splice(i, 1);
-            i--;
-
-            // Update score display
-            document.getElementById('score').textContent = `SCORE: ${gameState.score}`;
+    // Check for collisions with obstacles
+    for (let obstacle of obstacles) {
+        if (duck.x + duck.width > obstacle.x &&
+            duck.x < obstacle.x + obstacle.width &&
+            duck.y + duck.height > obstacle.y &&
+            duck.y < obstacle.y + obstacle.height) {
+            gameOver();
+            return;
         }
     }
 
     // Check if duck fell off screen
-    if (gameState.duck.y > GAME_HEIGHT) {
-        gameState.lives--;
-        if (gameState.lives <= 0) {
-            endGame();
-            return;
+    if (duck.y > canvas.height) {
+        gameOver();
+        return;
+    }
+
+    // Generate new platforms and obstacles
+    generatePlatforms();
+    generateObstacles();
+
+    // Draw duck
+    ctx.fillStyle = duck.color;
+    ctx.fillRect(duck.x, duck.y, duck.width, duck.height);
+
+    // Draw platforms
+    platforms.forEach(platform => {
+        ctx.fillStyle = platform.color;
+        ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
+    });
+
+    // Draw obstacles
+    obstacles.forEach(obstacle => {
+        ctx.fillStyle = obstacle.color;
+        ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+    });
+
+    // Update score
+    score++;
+    scoreDisplay.textContent = `Score: ${score}`;
+    highScoreDisplay.textContent = `High Score: ${highScore}`;
+
+    // Continue game loop
+    requestAnimationFrame(gameLoop);
+}
+
+// Generate new platforms
+function generatePlatforms() {
+    const canvas = document.getElementById('game-canvas');
+    const lastPlatform = platforms[platforms.length - 1];
+
+    // Generate new platform if needed
+    if (lastPlatform.x < canvas.width - 200) {
+        let newPlatform;
+        const platformTypes = {
+            '1': { width: 100 + Math.random() * 100, color: '#4CAF50' },
+            '2': { width: 150 + Math.random() * 150, color: '#2E7D32' },
+            '3': { width: 200 + Math.random() * 200, color: '#1B5E20' }
+        };
+
+        newPlatform = {
+            x: lastPlatform.x + lastPlatform.width + Math.random() * 200 + 100,
+            y: canvas.height - 20 - Math.random() * 100,
+            width: platformTypes[mapType].width,
+            height: 20,
+            color: platformTypes[mapType].color
+        };
+
+        platforms.push(newPlatform);
+    }
+
+    // Remove platforms that are off screen
+    platforms = platforms.filter(platform => platform.x + platform.width > 0);
+}
+
+// Generate new obstacles
+function generateObstacles() {
+    const canvas = document.getElementById('game-canvas');
+    const lastObstacle = obstacles[obstacles.length - 1];
+    const lastPlatform = platforms[platforms.length - 1];
+
+    // Generate new obstacle if needed
+    if (!lastObstacle || lastObstacle.x < canvas.width - 300) {
+        const obstacleTypes = {
+            '1': { width: 30, height: 30, color: '#F44336' }, // Spikes
+            '2': { width: 40, height: 40, color: '#FF9800' }, // Fire
+            '3': { width: 50, height: 50, color: '#9C27B0' }  // Laser
+        };
+
+        const newObstacle = {
+            x: lastPlatform.x + lastPlatform.width + Math.random() * 300 + 100,
+            y: canvas.height - lastPlatform.height - obstacleTypes[difficulty].height,
+            width: obstacleTypes[difficulty].width,
+            height: obstacleTypes[difficulty].height,
+            color: obstacleTypes[difficulty].color
+        };
+
+        obstacles.push(newObstacle);
+    }
+
+    // Remove obstacles that are off screen
+    obstacles = obstacles.filter(obstacle => obstacle.x + obstacle.width > 0);
+}
+
+// Handle key presses
+function handleKeyDown(e) {
+    if (e.code === 'Space' && isGameRunning) {
+        if (duck.y + duck.height >= 480 || duck.velocityY < 0) {
+            duck.velocityY = duck.jumpForce;
         }
-        // Reset duck position
-        gameState.duck.y = 100;
-        gameState.duck.velocityY = 0;
     }
+}
 
-    // Generate new platforms
-    if (gameState.platforms.length === 0 || gameState.platforms[gameState.platforms.length - 1].x < GAME_WIDTH - 200) {
-        const platformHeight = 20;
-        const platformY = GAME_HEIGHT - 50 - Math.random() * 100;
-
-        gameState.platforms.push({
-            x: gameState.lastPlatformX + gameState.platformGap + Math.random() * 100,
-            y: platformY,
-            width: PLATFORM_SIZE,
-            height: platformHeight
-        });
-
-        gameState.lastPlatformX = gameState.platforms[gameState.platforms.length - 1].x;
+// Game over
+function gameOver() {
+    isGameRunning = false;
+    if (score > highScore) {
+        highScore = score;
+        localStorage.setItem('duckRun3HighScore', highScore);
     }
+    gameOverScoreDisplay.textContent = `Score: ${score}`;
+    gameOverHighScoreDisplay.textContent = `High Score: ${highScore}`;
+    showScreen('gameOver');
+    currentMusic.pause();
+}
 
-    // Generate new obstacles
-    if (gameState.obstacles.length === 0 || gameState.obstacles[gameState.obstacles.length - 1].x < GAME_WIDTH - 300) {
-        gameState.obstacles.push({
-            x: gameState.lastObstacleX + gameState.obstacleGap + Math.random() * 200,
-            y: GAME_HEIGHT - 50 - Math.random() * 150,
-            width: OBSTACLE_SIZE,
-            height: OBSTACLE_SIZE
-        });
+// Show Fix WiFi prompt
+function showFixWifiPrompt() {
+    showScreen('fixWifi');
+}
 
-        gameState.lastObstacleX = gameState.obstacles[gameState.obstacles.length - 1].x;
-    }
+// Fix WiFi - Yes
+function fixWifiYes() {
+    wifiFixImage.src = 'assets/jeff/jeff.png';
+    wifiFixImage.style.display = 'block';
+    wifiFixText.textContent = "YOUR WIFI IS FIXED!";
+    wifiFixText.style.color = "green";
+}
 
-    // Generate new coins
-    if (gameState.coins.length === 0 || gameState.coins[gameState.coins.length - 1
+// Fix WiFi - No
+function fixWifiNo() {
+    wifiFixImage.style.display = 'none';
+    wifiFixText.textContent = "Because you didn't let Jeff fix your WiFi, he is now broke and homeless.";
+    wifiFixText.style.color = "red";
+}
+
+// Back to menu
+function backToMenu() {
+    showScreen('menu');
+    playMusic('menu');
+}
+
+// Start the game when the page loads
+window.addEventListener('load', () => {
+    init();
+    // Start game loop after a small delay to ensure everything is loaded
+    setTimeout(() => {
+        gameLoop();
+    }, 100);
+});
