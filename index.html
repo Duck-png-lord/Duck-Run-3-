@@ -5,66 +5,63 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Duck Run 3</title>
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 </head>
 <body>
+    <!-- Menu Screen -->
     <div id="menu-screen" class="screen active">
         <h1>DUCK RUN 3</h1>
-        <div class="menu-buttons">
-            <button id="start-btn">START</button>
-            <button id="difficulty-btn">DIFFICULTY: EASY</button>
-            <button id="maps-btn">MAPS: 1</button>
-        </div>
-        <button id="wifi-btn">FIX MY WIFI</button>
-    </div>
-
-    <div id="game-screen" class="screen">
-        <canvas id="game-canvas"></canvas>
-        <div id="game-ui">
-            <div id="score">SCORE: 0</div>
-            <div id="lives">LIVES: 3</div>
-            <div id="time">TIME: 0</div>
-        </div>
-        <div id="pause-screen" class="screen">
-            <h2>PAUSED</h2>
-            <button id="resume-btn">RESUME</button>
-            <button id="quit-btn">QUIT</button>
-        </div>
-        <div id="game-over-screen" class="screen">
-            <h2>GAME OVER</h2>
-            <div id="final-score">FINAL SCORE: 0</div>
-            <button id="restart-btn">PLAY AGAIN</button>
-            <button id="menu-btn">MAIN MENU</button>
-        </div>
-    </div>
-
-    <div id="wifi-modal" class="modal">
-        <div class="modal-content">
-            <h2>WOULD YOU LIKE YOUR WIFI FIXED?</h2>
-            <div class="modal-buttons">
-                <button id="wifi-yes">YES</button>
-                <button id="wifi-no">NO</button>
+        <div class="difficulty-selector">
+            <h3>Difficulty:</h3>
+            <div class="difficulty-buttons">
+                <button class="difficulty-btn active" data-difficulty="1">Easy</button>
+                <button class="difficulty-btn" data-difficulty="2">Medium</button>
+                <button class="difficulty-btn" data-difficulty="3">Hard</button>
             </div>
         </div>
+        <div class="map-selector">
+            <h3>Map:</h3>
+            <div class="map-buttons">
+                <button class="map-btn active" data-map="1">Forest</button>
+                <button class="map-btn" data-map="2">Desert</button>
+                <button class="map-btn" data-map="3">Cyber</button>
+                <button class="map-btn" data-map="4">Space</button>
+            </div>
+        </div>
+        <button id="start-btn" class="menu-btn">START GAME</button>
+        <button id="fix-wifi-btn" class="menu-btn">FIX MY WIFI</button>
     </div>
 
-    <div id="jeff-screen" class="screen">
-        <img src="assets/jeff/jeff.png" id="jeff-img">
-        <h2>YOUR WIFI IS FIXED!</h2>
-        <button id="jeff-ok">OK</button>
+    <!-- Game Screen -->
+    <div id="game-screen" class="screen">
+        <canvas id="game-canvas" width="800" height="500"></canvas>
+        <div class="score-display">
+            <span id="score">Score: 0</span>
+            <span id="high-score">High Score: 0</span>
+        </div>
     </div>
 
-    <div id="no-jeff-screen" class="screen">
-        <h2>Because you didn't get Jeff to fix your Wi-Fi when he had the chance, things have gone downhill fast—now he's broke, homeless, and probably still wondering why you never called him. Hope that Wi-Fi was worth it.</h2>
-        <button id="no-jeff-ok">OK</button>
+    <!-- Game Over Screen -->
+    <div id="game-over-screen" class="screen">
+        <h1>GAME OVER</h1>
+        <p id="game-over-score">Score: 0</p>
+        <p id="game-over-high-score">High Score: 0</p>
+        <button id="restart-btn" class="menu-btn">PLAY AGAIN</button>
+        <button id="back-to-menu-btn" class="menu-btn">MAIN MENU</button>
     </div>
 
-    <audio id="menu-music" loop>
-        <source src="assets/music/cg6-cyber-jump-499060.mp3" type="audio/mpeg">
-    </audio>
-    <audio id="game-music" loop>
-        <source src="assets/music/cg6-cyber-jump-499060.mp3" type="audio/mpeg">
-    </audio>
+    <!-- Fix WiFi Screen -->
+    <div id="fix-wifi-screen" class="screen">
+        <h1>FIX MY WIFI</h1>
+        <div id="wifi-fix-content">
+            <img id="wifi-fix-image" src="" alt="Jeff" style="display: none; max-width: 200px;">
+            <p id="wifi-fix-text"></p>
+        </div>
+        <div class="wifi-buttons">
+            <button id="wifi-yes" class="menu-btn">YES</button>
+            <button id="wifi-no" class="menu-btn">NO</button>
+        </div>
+        <button id="back-to-menu" class="menu-btn">BACK TO MENU</button>
+    </div>
 
     <script src="game.js"></script>
 </body>
