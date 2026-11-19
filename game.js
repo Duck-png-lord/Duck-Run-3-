@@ -63,6 +63,10 @@ function initGame() {
     document.addEventListener('keydown', handleKeyDown);
     document.addEventListener('keyup', handleKeyUp);
 
+    // Start menu music
+    document.getElementById('menu-music').play();
+    gameState.musicPlaying = true;
+
     // Game loop
     function gameLoop() {
         if (!gameState.gameActive) return;
@@ -107,15 +111,15 @@ function startGame() {
     switch(gameState.difficulty) {
         case 'easy':
             gameState.gameSpeed = 5;
-            document.getElementById('game-music').src = 'assets/music/easy.mp3';
+            document.getElementById('game-music').src = 'assets/music/cg6-cyber-jump-499060.mp3';
             break;
         case 'medium':
             gameState.gameSpeed = 7;
-            document.getElementById('game-music').src = 'assets/music/medium.mp3';
+            document.getElementById('game-music').src = 'assets/music/northside-records-phonk-dash-254379.mp3';
             break;
         case 'hard':
             gameState.gameSpeed = 10;
-            document.getElementById('game-music').src = 'assets/music/hard.mp3';
+            document.getElementById('game-music').src = 'assets/music/reganati-geometry-dash-song-512161.mp3';
             break;
     }
 
@@ -344,6 +348,20 @@ function update() {
 
             // Collision detected
             gameState.lives--;
+            if (gameState.lives <= 0) {
+                endGame();
+                return;
+            }
+
+            // Remove obstacle
+            gameState.obstacles.splice(i, 1);
+            i--;
+        }
+    }
+
+    // Check for coin collisions
+    for (let i = 0; i < gameState.coins.length; i
+
             if (gameState.lives <= 0) {
                 endGame();
                 return;
